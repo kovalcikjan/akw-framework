@@ -57,65 +57,219 @@ FAZE 11: Validation + Export ..... QA, Excel deliverable
 
 ### Cil
 Pochopit byznys klienta, definovat cile analyzy, vytvorit projekt.
+Vystupem je kompletni popis projektu: brief + research + params.yaml.
 
-### Kroky
+### Prehled
 
-Vsechno se drzi v chatu az do posledniho kroku. Projekt se vytvori az kdyz je vse potvrzene.
+```
+0.1  BRIEF         — 13 poli, otazky POSTUPNE po jedne    [checkpoint]
+0.2  RESEARCH      — iterativni v Claude Code, 5 sekci    [checkpoint]
+0.3  PARAMS.YAML   — generovani s inline traceability     [checkpoint]
+0.4  PROJECT       — vytvoreni projektu (TBD, FW-002)
+```
 
-**0.1 Uzivatel zada brief (v chatu)**
+Vsechno se drzi v chatu az do 0.4. Projekt se vytvori az kdyz je vse potvrzene.
 
-AI se pta:
-- Pro koho? (klient, domena)
-- Jaky SEO cil? (optimalizace kategorii, novy obsah/blog, prestavba URL struktury, competitive gain...)
-- Jaky scope? (jake produkty/sluzby, co je IN/OUT)
-- Specificke pozadavky? (jen CZ/SK, inventory only, agilni vs kompletni...)
-- Inside info od klienta? (plany, priority, omezeni)
+---
 
-CHECKPOINT: AI shrnuje brief → "Sedi to? Chces neco upravit?"
-NIKDY nepokracuj dal dokud uzivatel neodpovi na vsechny otazky a nepotvrdí brief.
+### 0.1 BRIEF — otazky POSTUPNE po jedne
 
-**0.2 AI vygeneruje deep research prompt a UKAZE ho uzivateli**
+AI klade otazky **jednu po druhe** (ne vsechny najednou). Po kazde odpovedi:
+- kratce potvrdi pochopeni
+- ukaze progress ("3/10 hotovo")
+- pokud je odpoved nejasna, IHNED zpresnuje ("rekl jsi 'novy obsah' - myslis blog nebo nove kategorie?")
 
-AI musi vytvorit KONKRETNI prompt (hotovy text, copy-paste ready) na zaklade briefu.
-Prompt musi obsahovat:
-- Kontext z briefu (klient, domena, cil, scope)
-- Co prozkoumat: web klienta, produkty, kategorie, znacky, ceny, strukturu webu
-- Co prozkoumat: konkurenci, trh, cilovou skupinu
-- Pozadavek na strukturovany vystup (fakta, ne doporuceni)
+**Povinna pole (1-10, blokuji pokracovani):**
 
-AI MUSI tento prompt vypsat do chatu jako hotovy text ktery uzivatel zkopiruje.
+| # | Pole | Priklad otazky |
+|---|------|----------------|
+| 1 | `client_name` | "Jak se jmenuje klient?" |
+| 2 | `domain` | "Jaka je domena? (napr. klient.cz)" |
+| 3 | `languages` | "Jaky jazyk? CS / SK / oboje?" |
+| 4 | `countries` | "Cilove zeme? CZ / SK / oboje?" |
+| 5 | `business_type` | "Typ byznysu? e-shop / sluzba / info / mix?" |
+| 6 | `primary_goal` | "Co chces touto analyzou dosahnout?" |
+| 7 | `deadline` | "Do kdy to potrebujes?" |
+| 8 | `expected_kw_count` | "Kolik keywords ocekavas? (1K / 5K / 10K / 50K)" |
+| 9 | `in_scope` | "Jake produkty/sluzby jsou IN scope? (vyjmenuj hlavni)" |
+| 10 | `out_of_scope` | "Co explicitne NENI scope? (co vyloucit)" |
 
-CHECKPOINT: "Zkopiruj tento prompt do Claude Desktop (s webovym vyhledavanim) a vysledek mi posli sem"
-(ceka na uzivateluv vstup - NEDELA nic dal dokud uzivatel nevlozi vysledek)
+**Volitelna pole (11-13, lze skip):**
 
-**0.3 Uzivatel vlozi deep research vysledek**
+| # | Pole | Priklad otazky |
+|---|------|----------------|
+| 11 | `competitors` | "Znas konkurenci? (2-5 jmen/domen). Pokud ne, dohledam v research." |
+| 12 | `priority_products` | "Je nejaky produkt/tema priorita? (launch, focus area)" |
+| 13 | `insider_info` | "Vis neco co SEO tool nevidi? (klientovy plany, omezeni)" |
 
-AI si ho zapamatuje (zatim NEPISE zadne soubory).
+**Validace behem dotazovani:**
+- `primary_goal` ma byt konkretni — ne "chceme vic traffic"
+- `out_of_scope` MUSI mit >=1 polozku (nuti usera premyslet nad hranicemi)
+- `deadline` vs `expected_kw_count` konzistence (5K KW neni za tyden)
 
-**0.4 AI vygeneruje params.yaml a UKAZE ho v chatu**
+CHECKPOINT 0.1: AI shrne vsech 13 poli v tabulce → "Sedi to? Chces upravit?"
+(ceka na OK nebo upravy; NIKDY nepokracuje dal bez potvrzeni)
 
-Z briefu + research automaticky vygeneruje:
-- client info (name, domain, language, country)
-- relevance kriteria (products, excluded, competitors)
-- categorization schema (typ, produkt, brand, specifikace)
-- cleaning config (word_order_dedup, volume_strategy, filters)
+---
 
-AI UKAZE params.yaml v chatu (zatim NEPISE soubor).
+### 0.2 RESEARCH — iterativni v Claude Code
 
-CHECKPOINT: "Zkontroluj - sedi produkty, konkurenti, excluded?"
-(ceka na OK nebo upravy)
+Research probiha **primo v Claude Code** (NE v Claude Desktop). AI pouziva dostupne tools a behem research **se ptá uzivatele** kdyz narazi na nejednoznacnost — stejne jako Claude Desktop deep research.
 
-**0.5 AI vytvori cely projekt naraz**
+**Workflow:**
 
-Az po potvrzeni params.yaml. Zepta se na cestu (default: ~/Documents/Akws/[nazev]/).
-Vytvori:
-- adresar + data/raw/, data/interim/, data/output/, docs/, src/
-- docs/analysis_brief.md (z briefu)
-- docs/business_research.md (z research vystupu)
-- params.yaml (potvrzeny)
-- CLAUDE.md s kontextem projektu + checklist fazi
+```
+STEP 1  AI ukaze PLAN research
+        ("zkoumam 5 sekci A/B/C/D/E, odhadovany cas 5-10 min")
+  ↓
+STEP 2  Iterativni zkoumani (A → E):
+        a) AI vola tools (WebFetch, WebSearch, DFS MCP)
+        b) Ukaze partial findings v chatu (user vidi progress)
+        c) Kdyz narazi na nejednoznacnost → PTA SE user a CEKA
+        d) Pokracuje na dalsi sekci
+  ↓
+STEP 3  Strukturovany summary v chatu (5 sekci A-E)
+  ↓
+STEP 4  CHECKPOINT — user: "OK" / "doplnit X" / "pustit znovu B"
+  ↓
+STEP 5  Soubor se NEPISE (pisou se az v 0.4 pri project create)
+```
 
-CHECKPOINT: "Faze 0 hotova. Projekt vytvoren v [cesta]. Pokracujeme Fazi 1?"
+**Research output contract (STANDARDNI, vsech 5 sekci musi byt):**
+
+```markdown
+## A. Web klienta ({{domain}})
+A.1  Existujici kategorie (URL + odhad produktu)
+A.2  Chybejici kategorie (vs. competitors — GAP)
+A.3  Blog sekce (co je, temata, kolik clanku)
+A.4  USP / Unique selling points
+
+## B. Konkurenti ({{competitor_list}})
+Pro kazdeho:
+B.1  Content strategy summary
+B.2  Top blog temata (3-5)
+B.3  Authority signal (DR z DFS, top-ranked keywords)
+B.4  Co maji, co klient nema
+
+## C. Trh & Segmenty
+C.1  Trendy (3-5 bodu)
+C.2  Edukacni obsah (YouTube, fora)
+C.3  Pain points uzivatelu
+
+## D. Keyword Opportunities (TOP 15)
+Tabulka: keyword | intent | SV (DFS) | KD (DFS) | opportunity
+
+## E. Priority Product Deep-Dive
+Pro kazdy priority_product z briefu:
+E.1  Otazky zakazniku
+E.2  Srovnani s competitors
+E.3  Content assets needed
+```
+
+Pokud AI nejakou sekci nemuze naplnit → ZAPISE do summary **"NEDOSTUPNE: duvod"** (ne implicit preskok).
+
+**Povolene tools:**
+
+| Nastroj | Pouziti |
+|---------|---------|
+| `WebFetch` | Web klienta + competitoru (homepage, kategorie, blog) |
+| `WebSearch` | Trendy, pain points, edukacni obsah |
+| `mcp__dfs-mcp__dataforseo_labs_google_keyword_overview` | SV + KD + intent |
+| `mcp__dfs-mcp__dataforseo_labs_google_keyword_suggestions` | Keyword expansion (sekce D) |
+| `mcp__dfs-mcp__dataforseo_labs_google_ranked_keywords` | Co competitor/klient rankuje (A.2, B.3) |
+| `mcp__dfs-mcp__dataforseo_labs_google_competitors_domain` | Dalsi competitors |
+| `mcp__dfs-mcp__dataforseo_labs_google_domain_rank_overview` | DR signal (B.3) |
+| `mcp__dfs-mcp__dataforseo_labs_search_intent` | Klasifikace intentu (sekce D) |
+| `mcp__dfs-mcp__serp_organic_live_advanced` | SERP analyza |
+| `mcp__dfs-mcp__on_page_content_parsing` | Fallback kdyz WebFetch selze |
+
+**NEPOUZIVAT:** Ahrefs MCP (auth komplikace), Chrome DevTools MCP (overhead), Exa MCP.
+
+**Kdy se AI PTA uzivatele behem research:**
+
+AI preusi research a zepta se kdyz:
+
+| Situace | Priklad otazky |
+|---------|----------------|
+| Vic kandidatu na competitor | "V top 10 SERP jsou i kuhtreiber.cz (#4), svarbazar.cz (#7). Zahrnout? [oba/jen prvni/zadny]" |
+| Nejasny scope | "Klient ma kategorii 'automaty' (20 produktu), brief specifikoval jen MIG/TIG/elektrodove. Patri tam automaty?" |
+| Chybejici data | "DFS nevratil SV pro 'argonovy mix 8L'. Chces odhad pres WebSearch?" |
+| Konflikt s briefem | "Deadline 30.6., competitor ma jarni sezonni content (brezen-kveten). Priorita jarni KW?" |
+| Hloubka | "Mam hledat i fora (C.2) nebo staci YouTube? +2-3 min." |
+
+Pokud user neodpovida → AI ceka, neimpovizuje. Po 3 ignoraci ukonci sekci s poznamkou "rozhodnuti chybi, pokracuji s defaultem: X".
+
+**Token budget:**
+- Research bezi v **hlavnim kontextu** (NE subagent) — user vidi kazdy krok
+- AI NESTAHUJE cele clanky — jen relevantni pasaze + URL reference
+- Summary ~2-4K tokenu
+
+CHECKPOINT 0.2: Research summary v chatu → user "OK" / "doplnit X" / "znovu B"
+
+---
+
+### 0.3 PARAMS.YAML — generovani s inline traceability
+
+AI vygeneruje kompletni `params.yaml` (schema nize v tomto dokumentu). Kazda NE-default hodnota ma **inline komentar** odkazujici na zdroj:
+
+- `# brief #N` — z odpovedi na otazku N v 0.1
+- `# research X.Y` — z research sekce X podsekce Y
+- `# default AKW` — framework default
+- `# ADDED z research X — user schvalil v 0.2` — rozsireno behem research
+
+**Priklad (zkraceny):**
+
+```yaml
+client:
+  name: "Svarecky-obchod"           # brief #1
+  domain: "svarecky-obchod.cz"      # brief #2
+  language: ["cs", "sk"]            # brief #3
+  country: ["CZ", "SK"]             # brief #4
+
+cleaning:
+  word_order_dedup: true            # business_type=e-shop → bezpecny
+  volume_strategy: "sum_volumes"    # default AKW
+
+filters:
+  min_search_volume: 5              # expected_kw_count=10K + priority=TIG launch → nizky SV OK
+  blacklist:
+    - "kurz"                        # research C.3 (pain point, ne nakup)
+    - "skoleni"                     # research C.3
+    - "wikipedia"                   # default AKW blacklist
+
+relevance:
+  products:                         # brief #9 + research A.1 + D
+    - "MIG svarecka"
+    - "TIG svarecka"                # PRIORITY (brief #12)
+    - "argon"                       # research D.6 — GAP (competitors nemaji)
+  excluded:                         # brief #10
+    - "servis"
+    - "bazar"
+  competitors:                      # brief #11 + research B
+    - "esab"
+    - "kuhtreiber"                  # ADDED z research B — user schvalil v 0.2
+```
+
+**Pravidla:**
+- `products` ⊃ `in_scope` z briefu (rozsireno o research findings)
+- `excluded` ⊃ `out_of_scope` z briefu
+- `competitors` = brief #11 ∪ research B additions (pokud user schvalil)
+- Schema validuje proti `params.yaml schema` (nize)
+- AI UKAZE params.yaml v chatu (zatim NEPISE soubor, zapise az v 0.4)
+
+CHECKPOINT 0.3: user reviewuje params.yaml → "OK" / "zmenit X, Y"
+
+---
+
+### 0.4 PROJECT CREATE — TBD
+
+Vytvoreni adresare, zapis docs/, CLAUDE.md, params.yaml. Mozne rozsireni: sanity check (smoke test na 20 KW), decision log, scope/timeline dokumenty.
+
+**Status:** TBD — specifikace v FW-002 (nezavisi na FW-001, reseni az po merge).
+
+Zatim po CHECKPOINT 0.3: AI se zepta "Pokracujeme vytvorenim projektu? Kam ho umistit? (default: ~/Documents/Akws/[nazev]/)" a vytvori minimalni strukturu (viz "Projekt struktura" nize).
+
+---
 
 ### Projekt struktura
 
