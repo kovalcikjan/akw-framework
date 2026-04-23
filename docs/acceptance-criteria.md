@@ -139,6 +139,201 @@ Z `Variant Clusters` sheetu náhodných 10 clusterů → *"dává smysl, že se 
 
 ---
 
+## Fáze 6.5 — SERP Enrichment
+
+### Klíčové metriky
+
+| Metrika | 🎯 Ideální | ✓ Akceptovatelné | ⚠ Signál |
+|---------|------------|------------------|-----------|
+| KW s `position_client` | 30-70 % | 10-80 % | <5 % (klient je nový/malý) nebo >90 % (možná chybí long-tail) |
+| KW s `kd` | 80 %+ | 50-80 % | <30 % — enrichment source nefunguje |
+| KW s `best_competitor_position` | 70 %+ | 40-70 % | <20 % — `tracked_competitors` nepokrývá trh |
+| SERP features pokrytí | u relevantních 60 %+ má features | 30-60 % | <10 % — feature extraction nefunguje |
+
+### Done checklist
+
+- [ ] `position_client` má sloupec (i když prázdný) u každého KW
+- [ ] `tracked_competitors` z params.yaml = sloupce `position_<domain>` existují
+- [ ] `best_competitor_position` a `best_competitor_domain` konzistentně vypočítány
+- [ ] `checkpoint_enrichment.json` dokončen (žádné incomplete KW)
+
+### Red flags
+
+- **Median `position_client` < 5** ale klient je nový → data jsou špatná, ověř domain v params.yaml
+- **`has_featured_snippet` = True u > 30 % KW** → SERP parsing overcounts, ověř
+- **Všechny `position_<competitor>` prázdné** → competitor domains chybně definované
+
+### Sample check
+
+20 KW s `position_client` → ručně ověř v Google (discrepancy < 10 % je OK)
+
+---
+
+## Fáze 7 — Dashboard
+
+### Klíčové metriky
+
+Dashboard nemá "quality" metriky — je to deskriptivní vrstva. Kritéria jsou **completeness**:
+
+| Položka | 🎯 Ideální | ✓ Akceptovatelné | ⚠ Signál |
+|---------|------------|------------------|-----------|
+| Listy v XLSX | Všech 10 (viz data-contracts) | Min. `Overview`, `Top_Volume`, `Ranking_Distribution` | Chybí `Overview` nebo `Ranking_Distribution` |
+| Grafy | 4-5 embedded nativních grafů | 2-3 grafy | Žádné grafy — XLSX je jen tabulky |
+| Overview metriky | 8-10 klíčových čísel | 5-7 | <3 — sheet je prázdný |
+
+### Done checklist
+
+- [ ] `07_dashboard.xlsx` existuje a otevře se v Excelu/LibreOffice bez chyb
+- [ ] `Overview` sheet má všechny klíčové čísla (count KW, median volume, intent split, % s pozicí klienta)
+- [ ] `Ranking_Distribution` pokrývá všechny 6 ranking buckets
+- [ ] `Charts` sheet obsahuje embedded grafy (ne jen tabulky)
+- [ ] **Žádné** scoring sloupce nebyly přidány do main datasetu
+
+### Red flags
+
+- **Dashboard obsahuje `priority_score` sloupec** → porušení separace, score patří do fáze 9
+- **Top listy jsou identické** (Top_Volume = Top_Value) → CPC data chybí nebo sort nefunguje
+- **`Ranking_Distribution` má všechny KW v `nerankuje`** → SERP enrichment neběžel nebo selhal
+
+### Sample check
+
+Otevři XLSX, podívej se na `Overview` → *"odpovídají čísla tomu, co víme o klientovi?"* Pokud `total_volume = 0` nebo `intent_split` neobsahuje TRANS, něco je špatně.
+
+---
+
+## Fáze 8 — Competitive Gap
+
+### Klíčové metriky
+
+| Metrika | 🎯 Ideální | ✓ Akceptovatelné | ⚠ Signál |
+|---------|------------|------------------|-----------|
+| Quick wins count | 10-15 % datasetu | 5-25 % | <2 % (nedostatek dat) nebo >40 % (threshold moc široký) |
+| Content gaps count | 20-40 % (klient je nový) | 10-50 % | >70 % — klient má obrovský obsahový deficit nebo SERP data neúplná |
+| Defended count | 5-20 % (klient rankuje) | 2-30 % | <1 % — klient nerankuje nikde |
+| `gap_type = monitor` fallback | <20 % | do 35 % | >50 % — rules nepokrývají většinu případů |
+
+### Done checklist
+
+- [ ] Každý řádek má `gap_type` (nikdy prázdné)
+- [ ] Každý řádek má `recommended_action`
+- [ ] `gap_traffic_potential` spočítán u quick_win / close_gap / content_gap
+- [ ] `08_gap.xlsx` má všech 6 listů (All_Gaps, Quick_Wins, Close_Gaps, Content_Gaps, Defended, Gap_Summary)
+
+### Red flags
+
+- **Quick win s KD > `gap.quick_win_max_kd`** → threshold violation, review pravidla
+- **Content gap s volume < 100** → marginální, zvaž prioritizaci
+- **`best_competitor_position` chybí ale `gap_type != monitor`** → chybějící SERP data
+
+### Sample check
+
+10 quick wins → *"dává smysl, že je to 'blízko'? Má klient reálnou šanci optimalizovat?"* Shoda < 7/10 = ladit thresholds.
+
+---
+
+## Fáze 9 — Scoring
+
+### Klíčové metriky
+
+| Metrika | 🎯 Ideální | ✓ Akceptovatelné | ⚠ Signál |
+|---------|------------|------------------|-----------|
+| P1 count z datasetu | 5-15 % | 2-25 % | <1 % (prahy moc vysoké) nebo >40 % (moc nízké) |
+| P1+P2 count | 20-40 % | 10-60 % | >80 % — "actionable" je všechno, prahy nefungují |
+| P4 count | 30-60 % | 20-75 % | <10 % (archive je malý) nebo >80 % (většina je ignore) |
+| Score rozdělení | Bimodální (hodně P1/P2 nebo P4) | Unimodální | Všechny KW v P2/P3 — model neodlišuje |
+| `scoring_reason` non-empty | 100 % | 100 % | Chybí u některých KW — data quality issue |
+
+### Done checklist
+
+- [ ] Každý řádek má `priority_score`, `priority_tier`, `scoring_reason`
+- [ ] `scoring_reason` je human-readable (obsahuje BV, RP, TP komponenty)
+- [ ] `Methodology` sheet v XLSX vysvětluje váhy + CTR estimates + gap modifiers
+- [ ] `scoring_issues.csv` ručně projitý (P1_NO_OPPORTUNITY, P4_MONEY_KEYWORD)
+
+### Red flags
+
+- **P1 s `gap_type = no_opportunity`** → konflikt, zkontroluj business_value (možná přestřeleno money_keyword bonusem)
+- **P4 s `priority = money_keyword`** → scoring drtí money KW, review parametry
+- **Median `ranking_probability` > 8** → model je moc optimistický, zkontroluj KD
+- **Všechny KW mají `priority_tier = P3`** → rozptyl priority_score je příliš nízký (normalizace selhala)
+
+### Sample check
+
+20 P1 KW ručně → *"opravdu bych toto řešil jako první?"* Shoda < 15/20 = ladit váhy v `params.yaml: scoring.weights` nebo thresholds.
+
+---
+
+## Fáze 10 — Content Mapping (optional)
+
+### Klíčové metriky
+
+| Metrika | 🎯 Ideální | ✓ Akceptovatelné | ⚠ Signál |
+|---------|------------|------------------|-----------|
+| URL per cluster | 1 (1 URL = 1 cluster) | 1-2 | 3+ per cluster — clustering selhalo |
+| New pages z P1+P2 | 20-40 % | 10-60 % | >70 % — klient má obrovský deficit nebo URL detection selhala |
+| Merge candidates | 2-10 | 0-15 | >20 — klient má výrazný content duplicate problem |
+| Pokrytí `content_type` | všech 8 typů zastoupeno (ideál) | 5-6 typů | 1-2 typy — schema je neúplné |
+
+### Done checklist
+
+- [ ] Každý řádek má `target_url`, `url_status`, `content_type`
+- [ ] `is_primary_kw` konzistentně vyplněno (1 True per cluster)
+- [ ] `secondary_keywords` jen u primary řádků
+- [ ] `10_content_mapping.xlsx` má všech 5 listů
+
+### Red flags
+
+- **`content_type = product` ale `intent = INFO`** → intent/content_type mismatch
+- **`url_status = merge` u 1-KW clusteru** → merge nedává smysl, review
+- **`target_url` duplicitní napříč clusters** → URL conflict, potenciální kanibalizace
+
+### Sample check
+
+10 new pages → *"má smysl vytvořit tuto URL? Je content_type správný?"* Shoda < 7/10 = ladit `content_types` v params.yaml nebo intent klasifikaci (fáze 5).
+
+---
+
+## Fáze 11 — Export & Deliverables
+
+### Klíčové metriky
+
+Export nemá quality metriky — je to finální kompilace. Kritéria jsou **ostrost klientského dokumentu**:
+
+| Položka | 🎯 Ideální | ✓ Akceptovatelné | ⚠ Signál |
+|---------|------------|------------------|-----------|
+| Executive summary položky | Všech 5 sekcí (top metriky, P1, quick wins, content gaps, recommendations) | 3-4 sekce | <3 — summary je prázdný |
+| Per-segment sheety | Jeden list per produkt (pokud > 1 produkt) | Agregované | Per-segment zapnuto ale jen 1 list |
+| Rendering check | Otevře se v Excelu i Google Sheets bez chyb | Excel only | Chyby při otevření (encoding, formulace) |
+
+### Done checklist
+
+- [ ] `11_FINAL_<client>_<date>.xlsx` existuje v `data/output/`
+- [ ] Executive summary obsahuje konkrétní čísla (ne placeholders)
+- [ ] Action plan je seřazený podle priority × gap_type
+- [ ] Per-segment sheety jsou kompletní
+- [ ] **Žádné** `NaN`, `None`, `null` values v klientských sheetech
+- [ ] Audit trail sloupce skryté (nebo odstraněné)
+- [ ] Pokud `google_sheets_export: true` — sync proběhl a klient má link
+
+### Red flags
+
+- **Executive summary obsahuje `TODO` nebo `<placeholder>`** → AI generation selhala
+- **P1 KW v Action Plan = 0** → nic "akce jako první" = buď chyba scoringu nebo nesprávný dataset
+- **Encoding problems** (`å`, `ł` místo `á`, `ý`) → UTF-8 BOM nedodržen
+
+### Sample check (POVINNÝ před předáním)
+
+Otevři finální XLSX a zkontroluj:
+1. `01_Executive_Summary` — přečti jako klient, dává smysl?
+2. `02_Action_Plan` prvních 20 řádků — opravdu bych toto řešil první?
+3. `03_Full_Keyword_List` — náhodných 20 řádků, správné hodnoty?
+4. `04_Per_Segment_<seg>` pro každý segment — kompletní?
+5. `08_Methodology` (pokud zapnuto) — transparentní pro klienta?
+
+Pokud cokoliv z výše = NE → vrátit se k fázi 11 (nebo výše, pokud je problém v datech).
+
+---
+
 ## Obecná pravidla napříč fázemi
 
 ### Před každým full AI run (fáze 4, 5)

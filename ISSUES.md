@@ -89,3 +89,46 @@ Aktualizovat: `KEYWORD_RESEARCH_FRAMEWORK.md`, `CLAUDE.md` (framework), přejmen
 **Fix:** DONE — now batched.
 
 **Status:** FIXED
+
+---
+
+### ISSUE-006: Fáze 7-11 byly "TBD" bez specifikace
+**Date:** 2026-04-23
+**Phase:** 7, 8, 9, 10, 11 (+ nová 6.5)
+**Severity:** HIGH
+
+**Problem:** Fáze 7 (Dashboard), 8 (Competitive Gap), 9 (Scoring), 10 (Content Mapping), 11 (Export) byly v `/akw` skillu jen `> Zatim nespecifikovano`. Reálné projekty je řešily ad-hoc ve sdíleném Google Sheetu, kde se vrstvy slévaly (dashboard + scoring + content mapping v jednom listu). Důsledky:
+
+- duplikovaná logika napříč projekty (každý měl vlastní scoring vzorec — `SV × CPC × 100` v delonghi_2_mixery vs. P1-P4 v CPP)
+- chybějící audit trail (proč je KW priorita A?)
+- scope creep v klientském deliverable (grafy se mísily s doporučeními)
+
+**Real case:** `delonghi_2_mixery` projekt — všech 17 Google Sheets listů v jednom souboru, implicitní scoring ve filteru, žádný oficiální prioritizační mechanismus. CPP obdobně.
+
+**Fix:**
+
+1. **Přidána fáze 6.5 SERP Enrichment** — explicitní krok pro pozice klienta + konkurence + KD + SERP features (nezbytné pro fáze 7-9, které to používají).
+2. **Fáze 7 Dashboard** — pure deskriptivní vrstva, NESMÍ obsahovat priority/doporučení. Output: `07_dashboard.xlsx` s pivoty a embedded grafy.
+3. **Fáze 8 Competitive Gap** — rule-based gap typology (defended, quick_win, close_gap, content_gap, no_opportunity, monitor) + recommended_action + gap_traffic_potential.
+4. **Fáze 9 Scoring** — jediný oficiální prioritizační mechanismus. Transparentní komponenty (business_value + ranking_probability + traffic_potential, váhy konfigurovatelné). `ranking_probability` konzumuje `gap_type` jako modifier. `scoring_reason` sloupec s human-readable breakdown pro audit.
+5. **Fáze 10 Content Mapping (optional)** — KW → URL → content_type. Řízeno `params.yaml: content_mapping.enabled`.
+6. **Fáze 11 Export & Deliverables** — samostatná fáze (oddělená od dashboardu), konsolidace interních artefaktů do klientského XLSX s executive summary, action plan, methodology sheet. Google Sheets sync on-demand.
+
+**Architektonická rozhodnutí:**
+- XLSX primární output, Google Sheets on-demand sync (ne automatický — jinak přepisuje klientské úpravy)
+- Feed-forward data flow (6.5 → 7 → 8 → 9 → 10 → 11), každá fáze přidává sloupce
+- Separation of concerns: každá fáze má explicit "NESMÍ obsahovat" seznam
+
+**Updated dokumenty:**
+- `/Users/admin/.claude/commands/akw.md` — kompletní specifikace fází 6.5-11
+- `docs/data-contracts.md` — schema + enum hodnoty pro nové sloupce (gap_type, priority_tier, url_status, content_type, ranking_bucket)
+- `docs/acceptance-criteria.md` — klíčové metriky + done checklist + sample check pro každou novou fázi
+
+**Implementace scriptů:** NENÍ součástí tohoto fixu — Python scripty (`src/serp_enrichment.py`, `dashboard.py`, `gap.py`, `scoring.py`, `content_mapping.py`, `export.py`) se implementují later na konkrétním projektu. Referenční kód pro reuse:
+- `Delonghi/src/google_sheets_helper.py` → fáze 11 `--to-sheets` flag
+- `mbank/src/relevance_analyzer.py` → vzor pro ordered decision tree ve fázi 8
+- `cpp/` quick_wins pattern → fáze 8 layout
+- `llentab/notebooks/01_eda_executed.ipynb` → vzor grafů pro fázi 7
+- `delonghi_2_mixery/` → vzor pro fázi 11 17-sheet Excel
+
+**Status:** FIXED — specifikace doplněna, implementace bude na nejbližším projektu (doporučen `LLENTAB` — má kompletní SERP data pro smoke test fází 6.5-9).
