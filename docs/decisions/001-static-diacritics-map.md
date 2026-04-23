@@ -16,11 +16,13 @@ Používáme **static diacritics map** pomocí `str.maketrans`:
 
 ```python
 DIACRITICS_MAP = str.maketrans(
-    "áäčďéěíĺľňóôŕřšťúůýž",
-    "aacdeeillnoorrstuuyz"
+    "áäčďéěíĺľňóôŕřšťúůýžÁÄČĎÉĚÍĹĽŇÓÔŔŘŠŤÚŮÝŽ",
+    "aacdeeillnoorrsutuyzAACDEEILLNOORRSUTUYZ",
 )
 text_ascii = text.lower().translate(DIACRITICS_MAP)
 ```
+
+Mapa obsahuje i **velká písmena** pro jistotu — technicky dead code (před translate se vždy volá `lower()`), ale zachovává bezpečnost, pokud by nějaký vstup nebyl lower-cased.
 
 NFD decomposition **nepoužíváme**.
 

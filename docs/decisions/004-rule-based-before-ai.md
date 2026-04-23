@@ -62,17 +62,47 @@ Rule-based MUSÍ běžet před AI, ne paralelně, ne po něm.
 
 ## Workflow
 
+### Fáze 4 (relevance) — lineární
+
 ```
 params.yaml (products, excluded, competitors)
     ↓
 Rule-based pass → ANO/NE (60-80 %) + MOZNA zbytek
     ↓
-Few-shot extraction (15-20 high-confidence z rule výsledků)
-    ↓
 AI pass (jen MOZNA) → ANO/NE/stále MOZNA
     ↓
 Human review (flagged + stále MOZNA)
 ```
+
+### Fáze 5 (kategorizace) — inspection workflow
+
+Kategorizace je komplexnější (víc dimenzí: typ/produkt/brand/intent/funnel) → má **tří-módový** běh, který umožňuje lidský review **před** AI:
+
+```
+                                    ┌─ --rule-only ────────────────┐
+                                    │ 1. Rule-based categorization │
+                                    │ 2. Extract few-shot (20 KW)  │
+                                    │ 3. Uložit rule_only.csv       │
+                                    │ 4. UKÁZAT few-shot v logu     │
+                                    │ 5. KONEC — human review       │
+                                    └──────────┬───────────────────┘
+                                               │
+                             (ladit params.yaml a opakovat --rule-only)
+                                               │
+                                    ┌─ --continue-ai ──────────────┐
+                                    │ 6. Načíst rule_only.csv       │
+                                    │ 7. AI na low-confidence (~20%)│
+                                    │ 8. Finalizace (money, validace)│
+                                    └──────────────────────────────┘
+
+Alternativně: default / --auto = inline (bez mezistage review)
+```
+
+**Proč tento split existuje** (`--rule-only` / `--continue-ai`):
+
+- AI běh stojí peníze a čas. Chceš **nejdřív zkontrolovat**, jaké few-shot examples AI dostane (→ dramaticky ovlivňují output quality)
+- Pokud schema v params.yaml má mezeru, uvidíš to v rule-based výsledcích **před** tím, než zaplatíš za AI
+- Iterativní cyklus: rule-only → review few-shot → ladit params.yaml → rerun rule-only → spokojen → `--continue-ai`
 
 ## When to revisit
 

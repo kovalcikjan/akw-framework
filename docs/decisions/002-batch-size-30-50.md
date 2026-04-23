@@ -12,19 +12,23 @@ Ranější projekty experimentovaly s batch size 1 (pomalé, drahé), 10 (stále
 
 ## Decision
 
-**Batch size 30-50 KW per prompt.** Default 30, můžeš jít do 50 pro jednoduché klasifikace s malým few-shot kontextem.
+**Default batch size 30 KW per prompt, doporučený rozsah 30-50 při override.**
+
+- **Hardcoded default v kódu: 30** (`ai_cfg.get("batch_size", 30)` v `relevance.py` i `categorization.py`)
+- **Override přes params.yaml** (`ai.batch_size`) nebo CLI (`--batch-size N`)
+- Rozsah 30-50 je doporučený pro běžné klasifikace; konkrétní hodnota validovaná napříč projekty = 30
 
 Nikdy **ne 1 per call**. Nikdy **ne 100+**.
 
 ## Reasoning
 
-- **30-50 je sweet spot** — validováno napříč 4 projekty
+- **30 je ověřený default** — běží napříč projekty (mBank, CPP, DeLonghi, eVisions, llentab)
+- **30-50 je doporučený rozsah** pro běžné klasifikace
 - Pod 30: zbytečně drahé (režie promptu = instrukce + few-shot + schema dominuje nad daty)
 - Nad 50: model začíná
   - Zapomínat schema (prázdné pole v odpovědi)
   - Ztrácet konzistenci (stejné KW jinak klasifikované v různých batchích)
   - Překračovat max output tokens, truncated odpověď
-- Batch 30 × cena $0.15/1M tokens (gpt-4o-mini) ≈ $0.002 per batch, tedy $0.06 / 1000 KW
 
 ## Consequences
 
@@ -39,12 +43,20 @@ Nikdy **ne 1 per call**. Nikdy **ne 100+**.
 
 ## Configuration
 
-V `params.yaml`:
+`ai:` blok v `params.yaml` je **volitelný** — pokud chybí, použije se hardcoded default `batch_size=30`. Skripty čtou `ai_cfg.get("batch_size", 30)`.
+
+Pokud chceš override:
 
 ```yaml
 ai:
-  batch_size: 30   # default
-  # batch_size: 50  # pro high-confidence klasifikace s malým schématem
+  batch_size: 30   # default, stačí vynechat celý ai: blok
+  # batch_size: 50  # pro jednoduché klasifikace, když chceš zrychlit
+```
+
+Jednorázový override z CLI:
+
+```bash
+python src/categorization.py --batch-size 40
 ```
 
 ## When to revisit

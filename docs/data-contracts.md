@@ -24,15 +24,17 @@ Fáze 6  → keywords_clustered.csv (optional)
 
 Sloučený výstup všech zdrojů po initial dedup. Cesta: `data/interim/keywords_raw.csv`.
 
-| Sloupec | Typ | Required | Poznámka |
-|---------|-----|----------|----------|
-| `keyword` | str | ✓ | Original, case-preserved |
-| `keyword_normalized` | str | ✓ | lowercase, stripped |
-| `source` | str | ✓ | `competitor_[domain]` / `gsc` / `client_seed` / `ahrefs` / `marketing_miner` / `reddit` / `paa` |
-| `volume` | int | — | 0 pokud neznámý |
-| `kd` | int | — | 0-100 |
-| `position` | float | — | 1.0-100.0 |
-| `url` | str | — | Ranking URL |
+**Pořadí sloupců** (podle reálného výstupu `merge_sources.py`):
+
+| # | Sloupec | Typ | Required | Poznámka |
+|---|---------|-----|----------|----------|
+| 1 | `keyword_normalized` | str | ✓ | lowercase, stripped |
+| 2 | `keyword` | str | ✓ | Original, case-preserved |
+| 3 | `volume` | int | — | 0 pokud neznámý |
+| 4 | `source` | str | ✓ | `competitor_[domain]` / `gsc` / `client_seed` / `ahrefs` / `marketing_miner` / `reddit` / `paa` |
+| 5 | `kd` | int | — | 0-100 |
+| 6 | `position` | float | — | 1.0-100.0, prázdné pokud není |
+| 7 | `url` | str | — | Ranking URL |
 
 ---
 
@@ -58,18 +60,21 @@ Vyčistený, deduplikovaný dataset. Cesta: `data/interim/keywords_clean.csv`.
 
 ### XLSX listy (keywords_clean.xlsx)
 
-| List | Obsah |
-|------|-------|
-| `Final Keywords` | Čisté KW (odpovídá keywords_clean.csv) |
-| `All Keywords` | Všechny s flagy `is_duplicate`, `has_variant` |
-| `Merged Variants` | Odebrané varianty s `merged_into` |
-| `Variant Clusters` | `cluster_id`, `type`, všechny KW v clusteru, canonical |
-| `Summary` | Metriky: input, exact dupes, diacritics, word-order, filtered, final |
+| List | Sloupce |
+|------|---------|
+| `Final Keywords` | `keyword, keyword_normalized, keyword_no_diacritics, source, volume, kd, position, url, all_variants, variant_count` (identické s keywords_clean.csv) |
+| `All Keywords` | Stejné sloupce jako Final Keywords |
+| `Merged Variants` | `keyword_normalized, keyword, volume, source, kd, position, url, removal_reason, merged_into, keyword_no_diacritics, _score` |
+| `Variant Clusters` | `cluster_key, cluster_type, canonical, canonical_volume, variant_count, all_variants, total_volume` |
+| `Summary` | `input_keywords, after_normalization, exact_duplicates_removed, diacritics_variants_merged, word_order_variants_merged, after_dedup, filtered_out, final_keywords, kept_percent, total_volume, volume_strategy, word_order_dedup_enabled` |
+
+**Pozn.:** `_score` v Merged Variants je tuple canonical score (např. `"(True, 130, -19)"` = `(has_diacritics, volume, -length)`), viz [ADR-001](decisions/001-static-diacritics-map.md).
 
 ### Enum hodnoty
 
 - `removal_reason`: `exact_dedup` / `diacritics_dedup` / `word_order_dedup`
-- `filter_reason`: `volume` / `length` / `blacklist: <term>`
+- `filter_reason`: popisný výraz, např. `"volume < 10"`, `"length > 100"`, `"blacklist: bazar"`
+- `cluster_type`: různé typy clusterů podle fáze dedup (diacritics / word-order / …)
 
 ---
 
@@ -84,24 +89,29 @@ Vyčistený, deduplikovaný dataset. Cesta: `data/interim/keywords_clean.csv`.
 |---------|-----|----------|----------|
 | `relevance` | str | ✓ | **ANO** / **NE** / **MOZNA** |
 | `relevance_reason` | str | ✓ | Max 15 slov |
-| `relevance_source` | str | — | `rule` / `ai` |
+| `relevance_source` | str | — | `rule` / `ai` / `ai_retry` / `manual` |
 | `relevance_confidence` | str | — | `high` / `medium` / `low` |
+| `review_flag` | str | — | Prázdné nebo `LOW_CONFIDENCE` / `RELEVANCE_LEAK_MOZNA` / `MOZNA_UNRESOLVED` |
 
 ### Doprovodné soubory
 
 | Soubor | Účel |
 |--------|------|
-| `data/interim/relevance_review.csv` | Flagged pro human review |
-| `data/interim/checkpoint_relevance.json` | Progress pro resume |
+| `data/interim/relevance_review.csv` | Flagged pro human review (má `review_flag`) |
+| `data/interim/relevance_leak_review.csv` | Post-hoc review (po kategorizaci se najde leak — MOZNA, které proklouzlo) |
+| `data/interim/keywords_rule_only.csv` | Výstup `--rule-only` módu (jen rule-based, bez AI) |
+| `data/interim/relevance_test_<N>.csv` | Výstup `--test N --test-round N` módu |
+| `checkpoint_relevance.json` | Progress pro resume (v project root) |
 
 ---
 
 ## Fáze 5 — keywords_categorized.csv / money_keywords.csv
 
-- `data/interim/keywords_categorized.csv` — všechny ANO KW s kategoriemi
+- `data/interim/keywords_categorized.csv` — jen **ANO** KW s kategoriemi (pro klienta)
+- `data/interim/keywords_categorized_full.csv` — všechny KW včetně NE/MOZNA (audit trail)
 - `data/interim/money_keywords.csv` — subset s `priority=money_keyword`
 
-**Všechny sloupce z fáze 4 (jen ANO KW)** +
+**Všechny sloupce z fáze 4 (pro `keywords_categorized.csv` jen ANO)** +
 
 | Sloupec | Typ | Required | Poznámka |
 |---------|-----|----------|----------|
@@ -112,8 +122,12 @@ Vyčistený, deduplikovaný dataset. Cesta: `data/interim/keywords_clean.csv`.
 | `specifikace` | str | — | Cílová skupina / varianta |
 | `intent` | str | ✓ | **INFO** / **COMM** / **TRANS** / **NAV** |
 | `funnel` | str | ✓ | **TOFU** / **MOFU** / **BOFU** / **BRAND** |
-| `priority` | str | — | `money_keyword` nebo prázdné |
+| `tema` | str | — | Tematická klasifikace (podle schema klienta, např. `legislativa_povoleni`) |
+| `categorization_source` | str | — | `rule` / `ai` / `manual` |
+| `categorization_confidence` | str | — | `high` / `medium` / `low` |
 | `categorization_reason` | str | — | Vysvětlení AI |
+| `priority` | str | — | `money_keyword` nebo prázdné |
+| `categorization_issue` | str | — | Flag pro konzistenci (např. `"typ=brand but no brand detected"`) |
 
 ### Intent → Funnel mapping
 
@@ -126,19 +140,34 @@ Vyčistený, deduplikovaný dataset. Cesta: `data/interim/keywords_clean.csv`.
 
 ### Money keyword kritéria
 
-Všechny tři podmínky musí platit:
+Implementováno v `categorization.py::flag_money_keywords`. Všechny tři podmínky musí platit:
 
 1. `intent ∈ {TRANS, COMM}`
-2. `volume >= money_threshold` (z params.yaml, default 20)
-3. `brand_type != competitor`
+2. `volume >= scoring.money_threshold` (z params.yaml, **default 20**)
+3. `brand_type != "competitor"`
+
+### Volitelné enrichment sloupce (project-specific)
+
+V reálných projektech (např. llentab) jsou v `keywords_categorized.csv` přidané **další sloupce z externích nástrojů**, které framework negeneruje:
+
+- **Marketing Miner data** — `Google Search Volume [MM]`, `Google CPC [CZK]`, `Google YoY Change [%]`, `Strongest Month`, měsíční data `January`-`December`
+- **Sklik data** — `Sklik Search Volume`, `Sklik CPC [CZK]`, `Sklik Strongest Month`, měsíční data
+- **SERP pozice** — `Google Position`, `Google Landing Page`, `Seznam Position`, per-competitor: `[domain] Google Position`, `[domain] Seznam Position`
+- **Meta kategorie** — `Price`, `Color`, `Location`, `Questions`, `For who`, `Numbers`, `Brands`, `Materials`, `Properties`, `Seasons`, `Sports`
+- **Competition** — `Google SERP Competition`, `Seznam SERP Competition class`
+
+**Tyto sloupce přidává uživatel z Marketing Miner exportu, nejsou součástí frameworku.** V docs schema se neuvádějí povinně — jsou volitelné.
 
 ### Doprovodné soubory
 
 | Soubor | Účel |
 |--------|------|
-| `data/interim/categorization_issues.csv` | Flagged inkonzistence |
-| `data/interim/categorization_test_N.csv` | Výsledky test kol |
-| `data/interim/checkpoint_categorization.json` | Progress pro resume |
+| `data/interim/categorization_issues.csv` | Flagged inkonzistence (má `categorization_issue`) |
+| `data/interim/classification_review_issues.csv` + `.json` | Strukturovaný review export |
+| `data/interim/CLASSIFICATION_REVIEW_REPORT.md` | Human-readable report |
+| `data/interim/keywords_rule_only.csv` | Výstup `--rule-only` módu (před AI) |
+| `data/interim/categorization_test_<N>.csv` | Výstup `--test N --test-round N` módu |
+| `checkpoint_categorization.json` | Progress pro resume (v project root) |
 
 ---
 
@@ -170,14 +199,17 @@ confidence: high | medium | low
 
 ## Konvence pro soubory
 
-- **Kódování:** UTF-8 se signaturou BOM pro Excel kompatibilitu (CSV)
+- **Kódování:** UTF-8 se signaturou BOM (`utf-8-sig`) pro Excel kompatibilitu — ověřeno v `cleaning.py`, `relevance.py`, `categorization.py`
 - **Separator:** čárka `,` (standardní)
 - **Decimal:** tečka `.` (ne čárka)
 - **Datum:** ISO 8601 `YYYY-MM-DD`
 - **NULL:** prázdný string, **ne** `null`/`None`/`NaN`
-- **List v jednom sloupci:** separator `|` (pipe), ne čárka (kolize s CSV)
+- **List v jednom sloupci:** separator `|` (pipe), ne čárka (kolize s CSV) — např. `all_variants: "svářečka mig|svarecka mig"`
 
 ## Primární vs sekundární output
 
-- **Primární pro klienta:** XLSX multi-sheet (viz [ADR-003](decisions/003-xlsx-primary-output.md))
-- **Sekundární pro pipeline:** CSV (vstup další fáze)
+Viz [ADR-003](decisions/003-xlsx-primary-output.md) pro kompletní rozhodnutí.
+
+- **Fáze 3 (cleaning):** XLSX multi-sheet (audit trail) + CSV (pro pipeline)
+- **Fáze 4, 5, 6:** jen CSV (pipeline output)
+- **Finální deliverable pro klienta:** Google Sheets (tvoří se mimo skripty fáze 3-6)

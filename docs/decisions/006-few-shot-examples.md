@@ -17,11 +17,15 @@ Zkoušeli jsme:
 
 ## Decision
 
-**15-20 few-shot examples**, extrahovaných z rule-based výsledků:
+**Default 20 few-shot examples** (rozsah 15-20), extrahovaných z rule-based výsledků:
 
-1. Po rule-based pass vyber 15-20 KW s nejvyšší confidence (matched více pravidly)
-2. Ty slož do few-shot bloku v promptu
-3. AI pak klasifikuje zbývající MOZNA / low-confidence KW
+1. Po rule-based pass vyber 20 KW s `categorization_confidence == "high"` flagem
+2. Stratifikované napříč 4 intent hodnotami (INFO/COMM/TRANS/NAV) — `count // 4 + 1` na každou kategorii
+3. Pokud výsledek > 20 → `random.sample` na přesný count
+4. Slož do few-shot bloku v promptu
+5. AI pak klasifikuje low-confidence keywords
+
+Override přes `ai.few_shot_count` v `params.yaml` (hardcoded default 20).
 
 ## Reasoning
 
@@ -32,10 +36,13 @@ Zkoušeli jsme:
   - Manuálně psané příklady = bias autora, nemusí odpovídat reálným datům
   - Rule-based = skutečné KW z tohoto projektu, model vidí reálný pattern
   - Automatické = škáluje napříč klienty bez manuálního zásahu
-- **High-confidence (> 1 pravidlo match)**:
+- **Filtr `categorization_confidence == "high"`**:
   - Nechceš učit model ambiguous případům
   - High-confidence = "toto je určitě správně" → pevný anchor
-- **Rozmanitost příkladů**: algoritmus vybírá napříč kategoriemi (ne 20× TRANS a nic INFO)
+  - Nastavuje se v rule-based logice podle počtu matchů + síly patternu
+- **Stratifikace napříč 4 intent hodnotami** (INFO/COMM/TRANS/NAV):
+  - Rovnoměrně `count // 4 + 1` na každou kategorii (pro count=20 → ~5 per intent, celkem 20-24 → random sample down na 20)
+  - Zabrání situaci, kdy 20× TRANS a 0× INFO
 
 ## Consequences
 
@@ -52,15 +59,31 @@ Zkoušeli jsme:
 ## Implementace
 
 ```python
-def extract_few_shot(rule_results, count=18):
-    """
-    Vybere diverzní sadu high-confidence KW napříč kategoriemi.
-    Cíl: pokrytí všech intent hodnot + money/non-money mix.
-    """
-    high_conf = rule_results[rule_results["rule_matches"] >= 2]
-    # vyvazena sample: 5x INFO, 5x COMM, 5x TRANS, 3x NAV
-    diverse = stratified_sample(high_conf, by="intent", per_group=5)
-    return diverse.head(count)
+def extract_few_shot(df: pd.DataFrame, count: int = 20) -> list[dict]:
+    """Extract diverse few-shot examples from rule-based high-confidence results."""
+    high = df[df["categorization_confidence"] == "high"].copy()
+    if len(high) == 0:
+        return []
+
+    examples: list[dict] = []
+    for intent in ["INFO", "COMM", "TRANS", "NAV"]:
+        subset = high[high["intent"] == intent]
+        n = min(count // 4 + 1, len(subset))
+        if n > 0:
+            sampled = subset.sample(n, random_state=42)
+            for _, row in sampled.iterrows():
+                examples.append({
+                    "keyword": row["keyword_normalized"],
+                    "typ": row["typ"],
+                    "produkt": row["produkt"],
+                    "brand": row["brand"],
+                    "intent": row["intent"],
+                })
+
+    random.seed(42)
+    if len(examples) > count:
+        examples = random.sample(examples, count)
+    return examples
 ```
 
 ## Prompt structure

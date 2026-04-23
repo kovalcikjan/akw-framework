@@ -20,12 +20,14 @@ Ranější projekty na tohle narazily několikrát (eVisions, pre-refactor mBank
 
 **Každý AI skript (fáze 4, 5) má `--test N` flag**, který:
 
-1. Zpracuje jen `N` náhodných KW (default 20-50)
-2. Uloží výsledek do `data/interim/categorization_test_N.csv` (neovlivní hlavní pipeline)
-3. Ukáže reasoning u každého KW
-4. Ukáže metriky: rule coverage, AI souhlas, distribuce verdiktů
+1. Zpracuje jen `N` náhodných KW (příklady v kódu: fáze 4 = 50, fáze 5 = 20)
+2. Uloží výsledek do `data/interim/<phase>_test_<N>.csv` (neovlivní hlavní pipeline)
+3. Spustí rule-based + AI na **všech** test KW (ne jen low-confidence) + reasoning sloupec
+4. Vypíše metriky: rule coverage, AI souhlas, distribuce verdiktů, příklady neshod
 
-**Full run (`python src/relevance.py` bez flagu) je zakázaný, dokud test neproběhl a nebyl zkontrolovaný.**
+**Full run bez testu NENÍ technicky vynucen — jde o disciplinovaný workflow, ne hard-blocker.** Doporučení: vždy `--test` před full run, ale uživatel má volnost to obejít.
+
+**Test mode `--test-round N` flag** umožňuje iterativní rozběh s jinou náhodnou sadou KW mezi koly (random seed = `42 + test_round`).
 
 ## Reasoning
 
@@ -85,8 +87,9 @@ else:
 
 ## Related patterns
 
-- `--dry-run` flag: ukáže, jak vypadá prompt, **bez** volání API — nulová cena, catch issues v prompt engineeringu
-- Checkpoint (viz [ADR-005](005-checkpoint-resume-pattern.md)): test mode nepoužívá checkpoint (příliš malý run, zbytečné)
+- **`--dry-run` flag** (pouze v `categorization.py`, **ne v `relevance.py`**): ukáže, jak vypadá prompt, **bez** volání API — nulová cena, catch issues v prompt engineeringu. TODO pro `relevance.py`.
+- **Checkpoint** (viz [ADR-005](005-checkpoint-resume-pattern.md)): test mode nepoužívá checkpoint (příliš malý run, zbytečné)
+- **Model switching**: `--model gpt-4o-mini / gpt-4o / gemini-2.0-flash / claude-sonnet-4-5-*` — test umožňuje porovnat konkurenční modely na stejné sadě KW
 
 ## When to revisit
 
