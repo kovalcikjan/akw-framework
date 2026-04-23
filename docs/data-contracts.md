@@ -118,7 +118,7 @@ Vyčistený, deduplikovaný dataset. Cesta: `data/interim/keywords_clean.csv`.
 | `typ` | str | — | Dle schema klienta v params.yaml |
 | `produkt` | str | — | Dle schema klienta |
 | `brand` | str | — | Název brandu |
-| `brand_type` | str | — | `own` / `competitor` |
+| `brand_type` | str | — | `own` / `competitor` / `retail` (retail = prodejce/distribuční kanál, ne výrobce) |
 | `specifikace` | str | — | Cílová skupina / varianta |
 | `intent` | str | ✓ | **INFO** / **COMM** / **TRANS** / **NAV** |
 | `funnel` | str | ✓ | **TOFU** / **MOFU** / **BOFU** / **BRAND** |
@@ -192,7 +192,7 @@ Tyto hodnoty se nesmí odchýlit. Žádné `ano`/`yes`/`True` místo `ANO`. Konz
 relevance:  ANO | NE | MOZNA
 intent:     INFO | COMM | TRANS | NAV
 funnel:     TOFU | MOFU | BOFU | BRAND
-brand_type: own | competitor
+brand_type: own | competitor | retail
 priority:   money_keyword | <prazdne>
 confidence: high | medium | low
 ```

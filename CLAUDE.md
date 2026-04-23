@@ -740,7 +740,7 @@ Vse z Faze 4 (jen ANO keywords) plus:
 | typ | str | NO | Dle schema klienta |
 | produkt | str | NO | Dle schema klienta |
 | brand | str | NO | Nazev brandu |
-| brand_type | str | NO | own / competitor |
+| brand_type | str | NO | own / competitor / retail (prodejce, ne vyrobce) |
 | specifikace | str | NO | Cilova skupina/varianta |
 | intent | str | YES | INFO / COMM / TRANS / NAV |
 | funnel | str | YES | TOFU / MOFU / BOFU / BRAND |
@@ -854,7 +854,7 @@ Cim: Python + manualni review.
 relevance:  ANO | NE | MOZNA
 intent:     INFO | COMM | TRANS | NAV
 funnel:     TOFU | MOFU | BOFU | BRAND
-brand_type: own | competitor
+brand_type: own | competitor | retail
 priority:   money_keyword | null
 confidence: high | medium | low
 ```
