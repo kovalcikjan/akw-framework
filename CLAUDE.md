@@ -3,7 +3,6 @@
 ## Kontext
 
 Framework pro analyzu klicovych slov. Pouziva se opakovane pro klienty (e-shopy, sluzby, weby).
-Vytvoren na zaklade 6 realnych projektu (Delonghi, mBank, CPP, eVisions, svarecky, Delonghi mixery).
 
 **Framework dokumentace:** `/Users/admin/Documents/Akws/Akw_framework/`
 **Known issues:** `/Users/admin/Documents/Akws/Akw_framework/ISSUES.md`
