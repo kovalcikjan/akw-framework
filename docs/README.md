@@ -26,6 +26,9 @@ Hard-won rozhodnutí, která se při opakovaných projektech snadno zapomenou. K
 | [005](decisions/005-checkpoint-resume-pattern.md) | Checkpoint/resume pattern v AI skriptech |
 | [006](decisions/006-few-shot-examples.md) | Few-shot 15-20 příkladů pro AI kategorizaci |
 | [007](decisions/007-test-mode-before-full-run.md) | Test mode (--test N) před full AI run |
+| [008](decisions/008-mozna-third-state.md) | MOZNA jako 3. stav relevance (ne binární ANO/NE) |
+| [009](decisions/009-word-order-dedup-opt-in.md) | Word-order dedup opt-in (default OFF) |
+| [010](decisions/010-conversational-flow-checkpoints.md) | Konverzační flow s checkpointy (ne one-shot pipeline) |
 
 ## Dvě pravidla pro údržbu
 
