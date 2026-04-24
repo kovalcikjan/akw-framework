@@ -21,7 +21,7 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 SUPPORTED_MODELS = {
-    "openai": ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1-nano"],
+    "openai": ["gpt-5.5", "gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1-nano"],
     "anthropic": ["claude-sonnet-4-5-20241022", "claude-haiku-4-5-20251001"],
     "gemini": ["gemini-2.0-flash", "gemini-2.5-flash-preview-05-20", "gemini-2.5-pro-preview-05-06"],
 }

@@ -547,7 +547,7 @@ def run_test(
     log.info("")
     log.info("Next steps:")
     log.info("  Another round:  python src/categorization.py --test 20 --test-round %d", test_round + 1)
-    log.info("  Other model:    python src/categorization.py --test 20 --model gpt-4o")
+    log.info("  Other model:    python src/categorization.py --test 20 --model gpt-5.5")
     log.info("  Show prompt:    python src/categorization.py --dry-run")
     log.info("  Full run:       python src/categorization.py")
 
@@ -575,7 +575,7 @@ def main() -> None:
 
     params = load_params(args.project_root)
     ai_cfg = params.get("ai", {})
-    model = args.model or ai_cfg.get("default_model", "gpt-4o-mini")
+    model = args.model or ai_cfg.get("default_model", "gpt-5.5")
     batch_size = args.batch_size or ai_cfg.get("batch_size", 30)
 
     if not args.input.exists():

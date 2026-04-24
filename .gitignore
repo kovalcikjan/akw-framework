@@ -10,3 +10,9 @@ data/output/
 *.egg-info/
 .mypy_cache/
 .ruff_cache/
+
+# Klientská data — NIKDY necommitovat
+projects/
+
+# Osobní handoff dokumenty (z /compact sessionů)
+resume.md

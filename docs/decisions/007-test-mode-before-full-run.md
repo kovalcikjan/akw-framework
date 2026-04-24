@@ -89,7 +89,7 @@ else:
 
 - **`--dry-run` flag** (pouze v `categorization.py`, **ne v `relevance.py`**): ukáže, jak vypadá prompt, **bez** volání API — nulová cena, catch issues v prompt engineeringu. TODO pro `relevance.py`.
 - **Checkpoint** (viz [ADR-005](005-checkpoint-resume-pattern.md)): test mode nepoužívá checkpoint (příliš malý run, zbytečné)
-- **Model switching**: `--model gpt-4o-mini / gpt-4o / gemini-2.0-flash / claude-sonnet-4-5-*` — test umožňuje porovnat konkurenční modely na stejné sadě KW
+- **Model switching**: `--model gpt-5.5 / gpt-4o-mini / gpt-4o / gemini-2.0-flash / claude-sonnet-4-5-*` — test umožňuje porovnat konkurenční modely na stejné sadě KW
 
 ## When to revisit
 
