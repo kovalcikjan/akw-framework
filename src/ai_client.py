@@ -131,14 +131,28 @@ def call_ai_json(
 
 
 def load_env(project_root) -> None:
-    """Load .env from project root or data/ subfolder."""
+    """Load .env with fallback chain:
+
+    1. <project-root>/.env         (project-local override)
+    2. <project-root>/data/.env    (legacy)
+    3. ~/Documents/Akws/.env       (shared — recommended default)
+    4. ~/.env                      (global home fallback)
+
+    Prvni nalezeny soubor se nacte a funkce skonci.
+    """
     from pathlib import Path
     from dotenv import load_dotenv
 
     root = Path(project_root)
-    for env_path in [root / ".env", root / "data" / ".env"]:
+    candidates = [
+        root / ".env",
+        root / "data" / ".env",
+        Path.home() / "Documents" / "Akws" / ".env",
+        Path.home() / ".env",
+    ]
+    for env_path in candidates:
         if env_path.exists():
             load_dotenv(env_path)
             log.info("Loaded API keys from %s", env_path)
             return
-    log.warning("No .env file found in %s or %s", root, root / "data")
+    log.warning("No .env found. Hledal jsem: %s", ", ".join(str(p) for p in candidates))

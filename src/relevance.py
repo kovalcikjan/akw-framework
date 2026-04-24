@@ -553,8 +553,14 @@ def main() -> None:
     parser.add_argument("--auto", action="store_true", help="Auto mode: skip MOZNA review")
     args = parser.parse_args()
 
-    # Load .env
-    for env_path in [args.project_root / ".env", args.project_root / "data" / ".env"]:
+    # Load .env — fallback chain: project → data/ → ~/Documents/Akws/.env → ~/.env
+    _env_candidates = [
+        args.project_root / ".env",
+        args.project_root / "data" / ".env",
+        Path.home() / "Documents" / "Akws" / ".env",
+        Path.home() / ".env",
+    ]
+    for env_path in _env_candidates:
         if env_path.exists():
             load_dotenv(env_path)
             log.info("Loaded API keys from %s", env_path)
