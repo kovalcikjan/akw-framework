@@ -13,9 +13,10 @@ Outputs:
   - checkpoint_relevance.json (resume support)
 
 Usage:
-    python src/relevance.py --test 50                          # test with default model
-    python src/relevance.py --test 50 --model gemini-2.0-flash # test with Gemini
-    python src/relevance.py --test 50 --model gpt-4o           # test with GPT-4o
+    python src/relevance.py --test 25                          # DEFAULT: 25 KW, gpt-4o-mini
+    python src/relevance.py --test 25 --model gpt-4o           # vyssi presnost
+    python src/relevance.py --test 25 --model claude-haiku-4-5-20251001  # Anthropic alt
+    python src/relevance.py --test 25 --model gemini-2.0-flash # Google alt
     python src/relevance.py                                    # full run
     python src/relevance.py --auto                             # full run, skip review
 """
@@ -52,7 +53,7 @@ DIACRITICS_MAP = str.maketrans(
 
 # Supported models per provider
 SUPPORTED_MODELS = {
-    "openai": ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1-nano"],
+    "openai": ["gpt-5.5", "gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1-nano"],
     "anthropic": ["claude-sonnet-4-5-20241022", "claude-haiku-4-5-20251001"],
     "gemini": ["gemini-2.0-flash", "gemini-2.5-flash-preview-05-20", "gemini-2.5-pro-preview-05-06"],
 }
@@ -525,7 +526,7 @@ def run_test(
     log.info("")
     log.info("Review %s, adjust params.yaml, then:", test_path)
     log.info("  - Another test round: python src/relevance.py --test 50 --test-round %d", test_round + 1)
-    log.info("  - Different model:    python src/relevance.py --test 50 --model gpt-4o")
+    log.info("  - Different model:    python src/relevance.py --test 50 --model gpt-5.5")
     log.info("  - Full run:           python src/relevance.py")
 
     return df
@@ -540,10 +541,14 @@ def main() -> None:
     parser.add_argument("--input", type=Path, default=Path("data/interim/keywords_clean.csv"))
     parser.add_argument("--output", type=Path, default=Path("data/interim/keywords_relevant.csv"))
     parser.add_argument("--project-root", type=Path, default=Path("."))
-    parser.add_argument("--model", type=str, default=None, help="AI model (gpt-4o-mini, gpt-4o, gemini-2.0-flash, claude-sonnet-4-5-20241022)")
+    parser.add_argument("--model", type=str, default="gpt-4o-mini",
+                        help="AI model — default: gpt-4o-mini. Alternativy: gpt-4o, "
+                             "claude-haiku-4-5-20251001, gemini-2.0-flash")
     parser.add_argument("--batch-size", type=int, default=None)
-    parser.add_argument("--skip-ai", action="store_true", help="Only rule-based")
-    parser.add_argument("--test", type=int, default=0, help="Test mode: process N random keywords (rule-based + AI)")
+    parser.add_argument("--skip-ai", action="store_true", help="Only rule-based (NEDOPORUCENE — AI je validacni vrstva)")
+    parser.add_argument("--test", type=int, default=0,
+                        help="Test mode: process N random keywords (default doporuceno: 25). "
+                             "Rule-based + AI pro vsechny + tabulka keyword|relevance|reasoning.")
     parser.add_argument("--test-round", type=int, default=1, help="Test round number (for iterative testing)")
     parser.add_argument("--auto", action="store_true", help="Auto mode: skip MOZNA review")
     args = parser.parse_args()
@@ -557,7 +562,7 @@ def main() -> None:
 
     params = load_params(args.project_root)
     ai_cfg = params.get("ai", {})
-    model = args.model or ai_cfg.get("default_model", "gpt-4o-mini")
+    model = args.model or ai_cfg.get("default_model", "gpt-5.5")
     batch_size = args.batch_size or ai_cfg.get("batch_size", 30)
     business_research = load_business_research(args.project_root)
 

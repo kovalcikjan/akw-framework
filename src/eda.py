@@ -1,17 +1,21 @@
 """Faze 2: EDA — Exploratory Data Analysis.
 
-Plain Python script (no Jupyter). Reads keywords_raw.csv, analyzes data,
-outputs eda_summary.json for AI to read and walk user through results.
+Plain Python script (no Jupyter by default). Reads keywords_raw.csv,
+analyzes data, outputs eda_summary.json for AI to read and walk user
+through results.
 
 Auto mode — runs without interaction, AI interprets results afterwards.
 
 Outputs:
   - data/interim/eda_summary.json (structured results for AI)
   - Terminal output (human-readable summary)
+  - Optional: notebooks/01_eda.ipynb (--notebook flag) pro user co chce
+    dal stourat interaktivne v Jupyter/VS Code
 
 Usage:
-    python src/eda.py
+    python src/eda.py                             # default: stdout + JSON
     python src/eda.py --input data/interim/keywords_raw.csv
+    python src/eda.py --notebook                  # + .ipynb
 """
 
 import argparse
@@ -368,12 +372,50 @@ def print_summary(s: dict) -> None:
     log.info("DONE. AI will walk you through the results.")
 
 
+def generate_notebook(notebook_path: Path, input_path: Path) -> None:
+    """Optional: vygeneruje .ipynb pro user co chce dal stourat."""
+    nb = {
+        "cells": [
+            {"cell_type": "markdown", "metadata": {},
+             "source": ["# EDA — interactive notebook\n",
+                        f"Vstup: `{input_path}`\n",
+                        "\nPython script `src/eda.py` uz bezi automaticky, tento notebook je pro deeper dive."]},
+            {"cell_type": "code", "metadata": {}, "outputs": [], "execution_count": None,
+             "source": ["import pandas as pd\n",
+                        "import matplotlib.pyplot as plt\n",
+                        f"df = pd.read_csv(r'{input_path}', encoding='utf-8-sig')\n",
+                        "df.head()\n"]},
+            {"cell_type": "code", "metadata": {}, "outputs": [], "execution_count": None,
+             "source": ["df.describe()\n"]},
+            {"cell_type": "code", "metadata": {}, "outputs": [], "execution_count": None,
+             "source": ["# Source breakdown\n",
+                        "df['source'].value_counts() if 'source' in df.columns else 'N/A'\n"]},
+            {"cell_type": "code", "metadata": {}, "outputs": [], "execution_count": None,
+             "source": ["# Volume histogram\n",
+                        "if 'volume' in df.columns:\n",
+                        "    pd.to_numeric(df['volume'], errors='coerce').hist(bins=50, log=True)\n",
+                        "    plt.title('Volume distribution')\n",
+                        "    plt.show()\n"]},
+            {"cell_type": "markdown", "metadata": {},
+             "source": ["## Doplnuj si vlastni bunky podle potreby\n"]},
+        ],
+        "metadata": {"kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
+                     "language_info": {"name": "python", "version": "3"}},
+        "nbformat": 4, "nbformat_minor": 5,
+    }
+    notebook_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(notebook_path, "w", encoding="utf-8") as f:
+        json.dump(nb, f, indent=1, ensure_ascii=False)
+
+
 def main() -> None:
     """Main entry point."""
     parser = argparse.ArgumentParser(description="EDA analysis for keyword research")
     parser.add_argument("--input", type=Path, default=Path("data/interim/keywords_raw.csv"))
     parser.add_argument("--output", type=Path, default=Path("data/interim/eda_summary.json"))
     parser.add_argument("--project-root", type=Path, default=Path("."))
+    parser.add_argument("--notebook", action="store_true",
+                        help="Dodatecne vygeneruj notebooks/01_eda.ipynb pro interaktivni pruzkum")
     args = parser.parse_args()
 
     if not args.input.exists():
@@ -391,6 +433,13 @@ def main() -> None:
 
     # Print to terminal
     print_summary(summary)
+
+    # Optional notebook
+    if args.notebook:
+        nb_path = args.project_root / "notebooks" / "01_eda.ipynb"
+        generate_notebook(nb_path, args.input)
+        log.info("Generated notebook: %s", nb_path)
+        log.info("  Spust: jupyter notebook %s  (nebo otevri ve VS Code)", nb_path)
 
 
 if __name__ == "__main__":
